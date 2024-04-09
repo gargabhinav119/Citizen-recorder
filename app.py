@@ -2,10 +2,9 @@ from flask import Flask, render_template, Response
 import cv2
 import face_recognition
 import numpy as np
-import csv
+import mysql.connector as connector
 from datetime import datetime, timedelta
 import random
-import mysql.connector as connector
 
 # Establishing connection to MySQL database
 try:
@@ -44,9 +43,6 @@ known_faces = {
     "Bradly": face_recognition.face_encodings(face_recognition.load_image_file("Bradley/bradley.jpg"))[0],
     "Yeshu": face_recognition.face_encodings(face_recognition.load_image_file("Yeshu/yeshu.jpg"))[0]
 }
-
-# CSV file path for storing attendance
-csv_file = 'attendance.csv'
 
 # Dictionary to track the last entry time for each detected person
 last_entry_times = {}
@@ -105,18 +101,15 @@ hindu_names = [
     'Unknown man Tarun Joshi'
 ]
 
-# Function to add entry to CSV file
-def add_entry_to_csv(name):
-    with open(csv_file, mode='a', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow([name, datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
-        # Update the last entry time for the person
-        last_entry_times[name] = datetime.now()
-        print(name)
+# Function to add entry to MySQL database
+def add_entry_to_database(name):
+    try:
         query = "INSERT INTO Citizen_record (Name_of_Citizen, Spotted_time) VALUES (%s, %s)"
         cursor.execute(query, (name, datetime.now()))
         con.commit()
-        print("Name insert into Database")
+        print("Name inserted into Database")
+    except connector.Error as e:
+        print(f"Error while inserting data into MySQL database: {e}")
 
 # Function to generate a random Hindu name for an unknown person
 def generate_random_hindu_name():
@@ -128,8 +121,8 @@ def remember_unknown_face(face_encoding):
     name = generate_random_hindu_name()
     # Add the new face encoding to known_faces dictionary with the Hindu name
     known_faces[name] = face_encoding
-    # Add an entry to the CSV file with the Hindu name
-    add_entry_to_csv(name)
+    # Add an entry to the MySQL database with the Hindu name
+    add_entry_to_database(name)
     return name
 
 def gen_frames():
@@ -158,7 +151,7 @@ def gen_frames():
                     matched_name = list(known_faces.keys())[matches.index(True)]
                     # Check if enough time has passed since the last entry for this person
                     if matched_name not in last_entry_times or (datetime.now() - last_entry_times[matched_name]).seconds > 60:
-                        add_entry_to_csv(matched_name)
+                        add_entry_to_database(matched_name)
                     name = matched_name
                 else:
                     # If the face is unknown, remember it and assign a Hindu name
@@ -204,4 +197,3 @@ def admin():
         return render_template('admin.html', records=records)
     except connector.Error as e:
         return f"Error fetching data from database: {e}"
-
