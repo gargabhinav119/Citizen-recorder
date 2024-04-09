@@ -205,7 +205,3 @@ def admin():
     except connector.Error as e:
         return f"Error fetching data from database: {e}"
 
-
-
-if __name__ == '__main__':
-    app.run(debug=True)
